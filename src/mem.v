@@ -5,7 +5,7 @@ module mem #(
 ) (
     input wire clk, wr_en,
     input wire [Data_width-1:0] wr_data, 
-    input wire [Addr_width-1:0]wr_address, rd_address,
+    input wire [Addr_width-1:0] address,
     output wire [Data_width-1:0] rd_data
 );
 
@@ -14,11 +14,11 @@ reg [Data_width-1:0] mem [0:Depth-1];
 // sync write 
 always @(posedge clk) begin
     if (wr_en) begin
-        mem[wr_address] <= wr_data;
+        mem[address] <= wr_data;
     end
 end
 
 // async read 
-assign rd_data = mem[rd_address];
+assign rd_data = mem[address];
     
 endmodule

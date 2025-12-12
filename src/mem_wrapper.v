@@ -7,14 +7,14 @@ module moduleName #(
     parameter data_offset = 100, // 100 -> 199(100)
     parameter SP_offset = 200 // 200 --> 255(56
 ) (
-    input wire clk, wr_en, 
+    input wire clk, wr_en, pop,
     input wire [1:0] sel,
     input wire [Addr_width-1:0] interrupt, Instruction, data, SP,
     input wire [Data_width-1:0] wr_data,
     output wire [Data_width-1:0] rd_data
 );
 
-wire [Addr_width-1:0] wr_address_wire, rd_address_wire;
+wire [Addr_width-1:0] address_wire;
 
 mem #(
     .Data_width (Data_width),     
@@ -23,9 +23,8 @@ mem #(
 ) M0 (
     .clk        (clk),      
     .wr_en      (wr_en),      
-    .wr_data    (wr_data),      
-    .wr_address (wr_address_wire),      
-    .rd_address (rd_address_wire),      
+    .wr_data    (wr_data),           
+    .address (address_wire),      
     .rd_data    (rd_data)       
 );
 
@@ -36,13 +35,13 @@ mem_Interpreter #(
     .data_offset        (data_offset),   
     .SP_offset          (SP_offset)    
 ) mem_int_M0 (
+    .pop          (pop),
     .interrupt    (interrupt),   
     .Instruction  (Instruction),   
     .data         (data),   
     .SP           (SP),   
     .sel          (sel),  
-    .wr_address   (wr_address_wire),   
-    .rd_address   (rd_address_wire)    
+    .address   (address_wire)   
 );
 
 endmodule
