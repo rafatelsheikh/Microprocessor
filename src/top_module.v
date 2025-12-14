@@ -5,7 +5,7 @@ module top_module (clk, rst, interrupt, in, out);
     output [7:0] out;
 
     // pc inputs and outputs
-    reg pc_counter_en, pc_load_en;
+    wire pc_counter_en, pc_load_en;
     reg [7:0] pc_load;
     wire [7:0] pc_out;
 
@@ -14,10 +14,10 @@ module top_module (clk, rst, interrupt, in, out);
                 .load(pc_load), .instruction(pc_out));
 
     // memory inputs and outputs
-    reg mem_wr_en, mem_pop;
-    reg [1:0] mem_sel;
-    reg [7:0] mem_sp, mem_instruction, mem_interrupt, mem_data;
-    reg [7:0] mem_wr_data;
+    wire mem_wr_en, mem_pop;
+    wire [1:0] mem_sel;
+    wire [7:0] mem_sp, mem_instruction, mem_interrupt, mem_data;
+    wire [7:0] mem_wr_data;
     wire [7:0] mem_rd_data;
 
     // mem inst.
@@ -27,20 +27,20 @@ module top_module (clk, rst, interrupt, in, out);
                                     .wr_data(mem_wr_data), .rd_data(mem_rd_data));
 
     // reg file inputs and outputs
-    reg reg_wr_en, reg_push, reg_pop;
-    reg [1:0] reg_read_ra_address, reg_read_rb_address, reg_wr_address;
-    wire [7:0] reg_ra_data, reg_rb_data;
+    wire reg_wr_en, reg_push, reg_pop;
+    wire [1:0] reg_read_ra_address, reg_read_rb_address, reg_wr_address;
+    wire [7:0] reg_ra_data, reg_rb_data, reg_wr_data;
 
     // reg file inst.
-    reg_file reg_file_inst(.clk(clk), .rst(rst), .wr_en(reg_wr_en), .push(reg_push), .pop(reg_pop),
+    reg_file reg_file_inst(.clk(clk), .rst(rst), .wr_en(reg_wr_en), .push(reg_push), .pop(reg_pop), .wr_data(reg_wr_data),
                             .read_ra_address(reg_read_ra_address), .read_rb_address(reg_read_rb_address),
                             .wr_address(reg_wr_address), .ra_data(reg_ra_data), .rb_data(reg_rb_data));
 
     // hazards unit inputs and outputs
-    reg hazard_execute_use_ra, hazard_execute_use_rb;
-    reg hazard_memory_writes, hazard_wb_writes, hazard_is_memory_instruction;
-    reg [1:0] hazard_execute_ra, hazard_execute_rb;
-    reg [1:0] hazard_mem_dist, hazard_wb_dist;
+    wire hazard_execute_use_ra, hazard_execute_use_rb;
+    wire hazard_memory_writes, hazard_wb_writes, hazard_is_memory_instruction;
+    wire [1:0] hazard_execute_ra, hazard_execute_rb;
+    wire [1:0] hazard_mem_dest, hazard_wb_dest;
     wire hazard_fwd_A_memory_execute, hazard_fwd_B_memory_execute;
     wire hazard_fwd_A_wb_execute, hazard_fwd_B_wb_execute;
     wire hazard_stall_structural, hazard_stall_data;
@@ -50,7 +50,7 @@ module top_module (clk, rst, interrupt, in, out);
                                     .memory_writes(hazard_memory_writes), .wb_writes(hazard_wb_writes),
                                     .is_memory_instruction(hazard_is_memory_instruction),
                                     .execute_ra(hazard_execute_ra), .execute_rb(hazard_execute_rb),
-                                    .mem_dist(hazard_mem_dist), .wb_dist(hazard_wb_dist),
+                                    .mem_dest(hazard_mem_dest), .wb_dest(hazard_wb_dest),
                                     .fwd_A_memory_execute(hazard_fwd_A_memory_execute),
                                     .fwd_B_memory_execute(hazard_fwd_B_memory_execute),
                                     .fwd_A_wb_execute(hazard_fwd_A_wb_execute),
@@ -58,10 +58,11 @@ module top_module (clk, rst, interrupt, in, out);
                                     .stall_strucural(hazard_stall_structural), .stall_data(hazard_stall_data));
 
     // execution stage inputs and outputs
-    reg ex_en_ccr, ex_load_status, ex_store_status;
-    reg [1:0] ex_sel;
-    reg [3:0] ex_opcode;
-    rg signed [7:0] ex_A, ex_B;
+    wire ex_en_ccr, ex_load_status, ex_store_status;
+    wire [1:0] ex_sel;
+    wire [3:0] ex_opcode;
+    wire signed [7:0] ex_A; 
+    reg signed [7:0] ex_B;
     wire ex_flag, z;
     wire signed [7:0] ex_out;
 
@@ -72,8 +73,8 @@ module top_module (clk, rst, interrupt, in, out);
                             .flag(ex_flag), .z(ex_z), .out(ex_out));
 
     // CU inputs and outputs
-    reg cu_pc_saved;
-    reg [7:0] cu_instruction;
+    wire cu_pc_saved;
+    wire [7:0] cu_instruction;
     wire cu_write_reg_en;
     wire cu_write_reg_address_sel;
     wire cu_write_reg_data_sel;
@@ -103,6 +104,8 @@ module top_module (clk, rst, interrupt, in, out);
     wire [1:0] cu_destination_addr;
     wire cu_use_memory;
     wire cu_out_en;
+    wire cu_use_ra;
+    wire cu_use_rb;
 
     // CU inst.
     CU CU_inst(.clk(clk),
@@ -138,17 +141,21 @@ module top_module (clk, rst, interrupt, in, out);
                 .write_to_reg(cu_write_to_reg),
                 .destination_addr(cu_destination_addr),
                 .use_memory(cu_use_memory),
-                .out_en(cu_out_en));
+                .out_en(cu_out_en)
+                .use_ra(cu_use_ra),
+                .use_rb(cu_use_rb));
 
     // F/D register
     reg [7:0] r1_instruction;
     reg [7:0] r1_pc_out;
 
     always @(posedge clk or posedge rst) begin
-        if (rst) begin
+        if (rst || cu_flush_1_instrucion ||
+            (r2_flush_2_instructions && pc_load_en) ||
+            r3_flush_3_instructions || hazard_stall_structural) begin
             r1_instruction <= 0;
             r1_pc_out <= 0;
-        end else begin
+        end else if (!hazard_stall_data) begin
             r1_instruction <= mem_rd_data;
             r1_pc_out <= pc_out;
         end
@@ -188,9 +195,19 @@ module top_module (clk, rst, interrupt, in, out);
     reg signed [7:0] r2_db;
     reg [1:0] r2_ra;
     reg [1:0] r2_rb;
+    reg r2_use_ra;
+    reg r2_use_rb;
+    reg r2_interrupt_mode;
 
     always @(posedge clk or posedge rst) begin
-        if (rst) begin
+        if (rst || cu_load_flags) begin
+            r2_interrupt_mode <= 0;
+        end else if (cu_pc_saving) begin
+            r2_interrupt_mode <= 1;
+        end
+
+        if (rst || (r2_flush_2_instrucions && pc_load_en) ||
+            r3_flush_3_instructions) begin
             r2_reg_wr_en <= 0;
             r2_reg_wr_addr_sel <= 0;
             r2_reg_wr_data_sel <= 0;
@@ -211,7 +228,6 @@ module top_module (clk, rst, interrupt, in, out);
             r2_pc_load_en <= 0;
             r2_pc_load_data_sel <= 0;
             r2_mem_wr_en <= 0;
-            r2_mem_interface_sel <= 1;
             r2_wr_to_reg <= 0;
             r2_dest_addr <= 0;
             r2_use_mem <= 0;
@@ -224,7 +240,15 @@ module top_module (clk, rst, interrupt, in, out);
             r2_db <= 0;
             r2_ra <= 0;
             r2_rb <= 0;
-        end else begin
+            r2_use_ra <= 0;
+            r2_use_rb <= 0;
+
+            if (r2_interrupt_mode) begin
+                r2_mem_interface_sel <= 2;
+            end else begin
+                r2_mem_interface_sel <= 1;
+            end
+        end else if (!hazard_stall_data) begin
             r2_reg_wr_en <= cu_write_reg_en;
             r2_reg_wr_addr_sel <= cu_write_reg_address_sel;
             r2_reg_wr_data_sel <= cu_write_reg_data_sel;
@@ -258,6 +282,8 @@ module top_module (clk, rst, interrupt, in, out);
             r2_db <= reg_rb_data;
             r2_ra <= reg_read_ra_address
             r2_rb <= reg_read_rb_address
+            r2_use_ra <= cu_use_ra;
+            r2_use_rb <= cu_use_rb;
         end
     end
 
@@ -283,12 +309,18 @@ module top_module (clk, rst, interrupt, in, out);
     reg r3_reg_wr_data_sel;
     reg [1:0] r3_ra;
     reg [1:0] r3_rb;
+    reg r3_interrupt_mode
 
     always @(posedge clk or posedge rst) begin
-        if (rst) begin
+        if (rst || r2_load_flags) begin
+            r3_interrupt_mode <= 0;
+        end else if (r2_pc_saving) begin
+            r3_interrupt_mode <= 1;
+        end
+
+        if (rst || r3_flush_3_instructions || hazard_stall_data) begin
             r3_alu_out <= 0;
             r3_db <= 0;
-            r3_mem_interface_sel <= 1;
             r3_pop <= 0;
             r3_push_pc <= 0;
             r3_pop_pc <= 0;
@@ -307,9 +339,15 @@ module top_module (clk, rst, interrupt, in, out);
             r3_reg_wr_data_sel <= 0;
             r3_ra <= 0;
             r3_rb <= 0;
+
+            if (r3_interrupt_mode) begin
+                r3_mem_interface_sel <= 2;
+            end else begin
+                r3_mem_interface_sel <= 1;
+            end
         end else begin
             r3_alu_out <= ex_out;
-            r3_db <= r2_db;
+            r3_db <= dbb;
             r3_mem_interface_sel <= r2_mem_interface_sel;
             r3_pop <= r2_pop;
             r3_push_pc <= r2_push_pc;
@@ -369,4 +407,150 @@ module top_module (clk, rst, interrupt, in, out);
             r4_mem_out <= mem_rd_data;
         end
     end
+
+    // flag selector mux
+    reg selected_flag;
+
+    always @(*) begin
+        case (r2_branch_flag)
+            2'b00: selected_flag = ex_flag;
+            2'b01: selected_flag = ex_z;
+            2'b10: selected_flag = 1;
+            2'b11: selected_flag = 1;
+        endcase
+    end
+
+    // pc counter enable
+    assign pc_counter_en = ~(hazard_stall_data | hazard_stall_structural);
+
+    // pc counter load enable
+    assign pc_load_en = (r2_pc_load_en | r3_pop_pc) &
+                        (selected_flag | r3_pop_pc | r2_pc_load_data_sel);
+
+    // pc load data
+    always @(*) begin
+        case ({r3_pop_pc, r2_pc_load_data_sel})
+            2'b00: pc_load = r2_db;
+            2'b01: pc_load = 0;
+            2'b10: pc_load = mem_rd_data;
+            2'b11: pc_load = mem_rd_data;
+        endcase
+    end
+
+    // reg file ra
+    assign reg_read_ra_address = (cu_read_reg_a_sel)? 2'b11 : r1_instruction[3:2];
+
+    // reg file rb
+    assign reg_read_rb_address = (cu_read_reg_b_sel)? 2'b11 : r1_instruction[1:0];
+
+    // reg file write enable
+    assign reg_wr_en = r4_reg_wr_en;
+
+    // reg file write address
+    assign reg_wr_address = (r4_reg_wr_addr_sel)? r4_rb : r4_ra;
+
+    // reg file write data
+    assign reg_wr_data = (r4_reg_wr_data_sel)? r4_mem_out : r4_alu_out;
+
+    // reg file push
+    assign reg_push = cu_push;
+
+    // reg file pop
+    assign reg_pop = cu_pop;
+
+    // forwarding da
+    reg signed [7:0] daa;
+
+    always @(*) begin
+        case ({hazard_fwd_A_memory_execute, hazard_fwd_A_wb_execute})
+            2'b00: daa = r2_da;
+            2'b01: daa = reg_wr_data;
+            2'b10: daa = r3_alu_out;
+            2'b11: daa = r3_alu_out;
+        endcase
+    end
+
+    // forwarding db
+    reg signed [7:0] dbb;
+
+    always @(*) begin
+        case ({hazard_fwd_B_memory_execute, hazard_fwd_B_wb_execute})
+            2'b00: dbb = r2_db;
+            2'b01: dbb = reg_wr_data;
+            2'b10: dbb = r3_alu_out;
+            2'b11: dbb = r3_alu_out;
+        endcase
+    end
+
+    // Ex_stage A
+    assign ex_A = daa;
+
+    // Ex_stage B
+    always @(*) begin
+        case (r2_alu_B_sel)
+            2'b00: ex_B = daa;
+            2'b01: ex_B = dbb;
+            2'b10: ex_B = r2_immediate;
+            2'b11: ex_B = r2_in;
+        endcase
+    end
+
+    // Ex_stage CCR selector
+    assign ex_sel = r2_flag_addr;
+
+    // Ex_stage CCR enable
+    assign ex_en_ccr = r2_flag_en;
+
+    // Ex_stage load status
+    assign ex_load_status = r2_load_flags;
+
+    // Ex_stage store status
+    assign ex_store_status = r2_store_flags;
+
+    // Ex_stage alu opcode
+    assign ex_opcode = r2_alu_op;
+
+    // memory write enable
+    assign mem_wr_en = r3_mem_wr_en;
+
+    // memory selector
+    assign mem_sel = r3_mem_interface_sel;
+
+    // memory instruction
+    assign mem_instruction = pc_out;
+
+    // memory interrupt
+    assign mem_interrupt = pc_out;
+
+    // memory sp
+    assign mem_sp = r3_alu_out;
+
+    // memory data
+    assign mem_data = r3_alu_out;
+
+    // memory pop
+    assign mem_pop = r3_pop;
+
+    // memory write data
+    assign mem_wr_data = (r3_push_pc)? ((r3_curr_pc_sel)? r3_pc_out : r3_next_pc) : r3_db;
+
+    // out
+    assign out = (r4_out_en)? r4_alu_out : 0;
+
+    // CU instruction
+    assign cu_instruction = r1_instruction;
+
+    // CU pc_saved
+    assign cu_pc_saved = r3_pc_saving;
+
+    // hazards unit inputs
+    assign hazard_execute_use_ra = r2_use_ra;
+    assign hazard_execute_use_rb = r2_use_rb;
+    assign hazard_memory_writes = r3_wr_to_reg;
+    assign hazard_wb_writes = r4_wr_to_reg;
+    assign hazard_is_memory_instruction = r3_use_mem;
+    assign hazard_execute_ra = r2_ra;
+    assign hazard_execute_rb = r2_rb;
+    assign hazard_mem_dest = r3_dest_addr;
+    assign hazard_wb_dest = r4_dest_addr;
 endmodule
