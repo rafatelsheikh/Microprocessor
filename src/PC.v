@@ -9,13 +9,13 @@ module PC(clk, rst, counter_en, load_en, load, inst);
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            inst <= 7'b0;
-        end
-        else if (counter_en) begin
-            inst <= inst + 1;
+            inst <= 0;
         end
         else if (load_en) begin
             inst <= load;
+        end
+        else if (counter_en) begin
+            inst <= inst + 1;
         end
     end
 
