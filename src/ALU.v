@@ -1,16 +1,11 @@
-module EX_stage(
+module ALU(
     input signed [7:0]A,B,
     input [3:0]opcode,
-    input EN_CCR,rst,clk,load_status,store_status,
-    input [1:0]sel,
+    input Cin,
     output reg signed [7:0]out,
-    output flag,
-    output reg Z  
+    output reg Z,C,V,N,
+    output reg Z_update,C_update,V_update,N_update  
 );
-
-reg [3:0] CCR,status_reg;
-reg carry_flag,N;
-wire Cin;
 
 localparam ADD      = 4'd0,
            SUB      = 4'd1,
@@ -27,149 +22,149 @@ localparam ADD      = 4'd0,
            BYPASS_B = 4'd12,
            BYPASS_A = 4'd13;
 
-assign Cin = CCR[2];
-
 //ALU block
 always @(*) begin
 
         case (opcode)
         
             ADD: begin
-                {carry_flag,out} = A + B;
+                {C,out} = A + B;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 1;
+                V_update = 1;
             end
 
             SUB: begin
-                {carry_flag,out} = A - B;
+                {C,out} = A - B;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 1;
+                V_update = 1;
             end
 
             AND: begin
-                {carry_flag,out}  = A & B;
+                {C,out}  = A & B;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 0;
+                V_update = 0;
             end
 
             OR: begin
-                {carry_flag,out}  = A | B;
+                {C,out}  = A | B;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 0;
+                V_update = 0;
             end
 
             RLC: begin
-                {carry_flag,out} = {B,Cin};
+                {C,out} = {B,Cin};
+                Z_update = 0;
+                N_update = 0;
+                C_update = 1;
+                V_update = 0;
             end
 
             RRC: begin
-                {out,carry_flag} = {Cin,B};
+                {out,C} = {Cin,B};
+                Z_update = 0;
+                N_update = 0;
+                C_update = 1;
+                V_update = 0;
             end
 
             SET_C: begin
-                {carry_flag,out} = {1'b1,8'b0};
+                {C,out} = {1'b1,8'b0};
+                Z_update = 0;
+                N_update = 0;
+                C_update = 1;
+                V_update = 0;
             end
 
             CLR_C: begin
-                {carry_flag,out} = 0;
+                {C,out} = 0;
+                Z_update = 0;
+                N_update = 0;
+                C_update = 1;
+                V_update = 0;
             end
 
             NOT_B: begin
-                {carry_flag,out} = ~B;
+                {C,out} = ~B;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 0;
+                V_update = 0;
             end
 
             NEG_B: begin
-                {carry_flag,out} = (~B) + 1;
+                {C,out} = (~B) + 1;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 0;
+                V_update = 0;
             end
 
             INC_B: begin
-                {carry_flag,out} = B + 1;
+                {C,out} = B + 1;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 1;
+                V_update = 1;
             end
 
             DEC_B: begin
-                {carry_flag,out} = B -1 ;
+                {C,out} = B -1 ;
+                Z_update = 1;
+                N_update = 1;
+                C_update = 1;
+                V_update = 1;
             end
 
             BYPASS_B: begin
-                {carry_flag,out} = {1'b0,B};
+                {C,out} = {1'b0,B};
+                Z_update = 0;
+                N_update = 0;
+                C_update = 0;
+                V_update = 0;
             end
 
             BYPASS_A: begin
-                {carry_flag,out} = {1'b0,A};
+                {C,out} = {1'b0,A};
+                Z_update = 0;
+                N_update = 0;
+                C_update = 0;
+                V_update = 0;
             end
 
-            default: {carry_flag,out} = 0; 
+            default: begin
+                {C,out} = 0; 
+                Z_update = 0;
+                N_update = 0;
+                C_update = 0;
+                V_update = 0;
+            end 
+
             
         endcase
+end
 
-        //show the zero flag as an output not from the CCR
-        if (out == 0) begin
-            Z = 1;
-        end 
-        else begin
-            Z = 0;
-        end
+always @(out,C) begin
+    
+    //Zero flag
+    Z = (out == 0);
 
-        // negative flag internal signal
-        if (out < 0) begin
-            N = 1;
-        end 
-        else begin
-            N = 0;
-        end
+    //Negative flag
+    N = out[7];
+
+    //Carry flag calculated with the out
+
+    //overflow flag
+    V = C ^ out[7];
 
 end
 
-
-
-//CCR block
-
-//write with clk
- always @(posedge clk or posedge rst) begin
-    
-    if (rst) begin
-        CCR <=0 ;
-    end 
-    
-    else begin    
-        
-        if(load_status) begin
-            CCR <= status_reg;
-        end
-
-        else if(EN_CCR) begin
-
-            //update the zero flag CCR[0]
-            if (opcode == ADD || opcode == SUB || opcode == AND || opcode == OR || opcode == NOT_B || opcode == NEG_B || opcode == INC_B || opcode == DEC_B) begin
-                CCR[0] <= Z;
-            end 
-
-            //update the negative flag CCR[1]
-            if (opcode == ADD || opcode == SUB || opcode == AND || opcode == OR || opcode == NOT_B || opcode == NEG_B || opcode == INC_B || opcode == DEC_B) begin
-                CCR[1] <= N;
-            end 
-    
-            //update the carry flag CCR[2]
-            if (opcode == ADD || opcode == SUB || opcode == RLC || opcode == RRC || opcode == SET_C || opcode == CLR_C || opcode == INC_B || opcode == DEC_B) begin
-                CCR[2] <= carry_flag;
-            end 
-
-            //update the overflow flag CCR[3]
-            if (opcode == ADD || opcode == SUB || opcode == INC_B || opcode == DEC_B) begin
-                CCR[3] <= carry_flag ^ out[7];
-            end 
-        
-        end
-
-    end 
-
- end
-
-//read async from CCR
-assign flag = CCR[sel];
-
-//status register 
-always @(posedge clk or posedge rst) begin
-    if (rst) begin
-        status_reg <= 0;
-    end 
-    else begin
-        if (store_status) begin
-            status_reg <= CCR ;
-        end
-    end
-end
 
 endmodule
