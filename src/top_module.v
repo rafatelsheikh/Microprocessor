@@ -10,8 +10,8 @@ module top_module (clk, rst, interrupt, in, out);
     wire [7:0] pc_out;
 
     // pc inst.
-    pc pc_inst(.clk(clk), .rst(rst), .counter_en(pc_counter_en), .load_en(pc_load_en),
-                .load(pc_load), .instruction(pc_out));
+    PC PC_inst(.clk(clk), .rst(rst), .counter_en(pc_counter_en), .load_en(pc_load_en),
+                .load(pc_load), .inst(pc_out));
 
     // memory inputs and outputs
     wire mem_wr_en, mem_pop;
