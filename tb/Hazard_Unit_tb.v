@@ -71,7 +71,7 @@ module Hazard_Unit_tb ();
 
         // Case 5 : Execute Stall
 
-        execute_use_ra = 1; execute_use_rb = 0; memory_writes = 0; wb_writes = 0;
+        execute_use_ra = 1; execute_use_rb = 0; memory_writes = 1; wb_writes = 0;
         is_memory_instruction = 1;
         mem_dest = 2'b00; wb_dest = 2'b01; execute_ra = 2'b00; execute_rb = 2'b11;
 
@@ -79,7 +79,7 @@ module Hazard_Unit_tb ();
             $time, execute_use_ra, execute_use_rb, memory_writes, wb_writes, is_memory_instruction, mem_dest, wb_dest, execute_ra, execute_rb,
             fwd_A_memory_execute, fwd_B_memory_execute, fwd_A_wb_execute, fwd_B_wb_execute, stall_structural, stall_data);
 
-        execute_use_ra = 0; execute_use_rb = 1; memory_writes = 0; wb_writes = 0;
+        execute_use_ra = 0; execute_use_rb = 1; memory_writes = 1; wb_writes = 0;
         is_memory_instruction = 1;
         mem_dest = 2'b00; wb_dest = 2'b01; execute_ra = 2'b10; execute_rb = 2'b00;
 
@@ -90,4 +90,5 @@ module Hazard_Unit_tb ();
         $display("Testbench finished.");
         $stop();
 	end
+
 endmodule : Hazard_Unit_tb
