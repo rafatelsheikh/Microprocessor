@@ -18,6 +18,7 @@ module Hazard_Unit (execute_use_ra, execute_use_rb, memory_writes, wb_writes, is
 	assign stall_structural = is_memory_instruction;
 
 	// Stall execute when the data it needs will come from an instruction uses memory
-	assign stall_data = is_memory_instruction && ( (execute_use_ra && (execute_ra == mem_dest)) || (execute_use_rb && (execute_rb == mem_dest)));
+	assign stall_data = is_memory_instruction && memory_writes && ( (execute_use_ra && (execute_ra == mem_dest)) || (execute_use_rb && (execute_rb == mem_dest)));
+
 
 endmodule : Hazard_Unit
