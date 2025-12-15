@@ -216,7 +216,7 @@ always @ (*)
                                                             push_pc = 'b1;
                                                         end
                                                     else if (ra == 'b10)
-                                                        pop_pc  ='b1
+                                                        pop_pc  ='b1;
                                                     else if (ra == 'b11)
                                                         begin
                                                             pop_pc ='b1;
@@ -1298,4 +1298,5 @@ always @ (*)
                 out_en                  ='b0;
             end
     end
+
 endmodule
