@@ -46,7 +46,7 @@ module top_module (clk, rst, interrupt, in, out);
     wire hazard_stall_structural, hazard_stall_data;
 
     // hazards unit inst.
-    hazards_unit hazards_unit_inst(.execute_use_ra(hazard_execute_use_ra), .execute_use_rb(hazard_execute_use_rb),
+    Hazard_Unit Hazard_Unit_inst(.execute_use_ra(hazard_execute_use_ra), .execute_use_rb(hazard_execute_use_rb),
                                     .memory_writes(hazard_memory_writes), .wb_writes(hazard_wb_writes),
                                     .is_memory_instruction(hazard_is_memory_instruction),
                                     .execute_ra(hazard_execute_ra), .execute_rb(hazard_execute_rb),
