@@ -37,24 +37,28 @@ module top_module (clk, rst, interrupt, in, out);
                             .wr_address(reg_wr_address), .ra_data(reg_ra_data), .rb_data(reg_rb_data));
 
     // hazards unit inputs and outputs
-    wire hazard_execute_use_ra, hazard_execute_use_rb;
+    wire hazard_execute_use_ra, hazard_execute_use_rb, hazard_decode_use_ra, hazard_decode_use_rb;
     wire hazard_memory_writes, hazard_wb_writes, hazard_is_memory_instruction;
-    wire [1:0] hazard_execute_ra, hazard_execute_rb;
+    wire [1:0] hazard_execute_ra, hazard_execute_rb, hazard_decode_ra, hazard_decode_rb;
     wire [1:0] hazard_mem_dest, hazard_wb_dest;
     wire hazard_fwd_A_memory_execute, hazard_fwd_B_memory_execute;
-    wire hazard_fwd_A_wb_execute, hazard_fwd_B_wb_execute;
+    wire hazard_fwd_A_wb_decoe, hazard_fwd_B_wb_decode, hazard_fwd_A_wb_execute, hazard_fwd_B_wb_execute;
     wire hazard_stall_structural, hazard_stall_data;
 
     // hazards unit inst.
     Hazard_Unit Hazard_Unit_inst(.execute_use_ra(hazard_execute_use_ra), .execute_use_rb(hazard_execute_use_rb),
+                                    .decode_use_ra(hazard_decode_use_ra), .decode_use_rb(hazard_decode_use_rb),
                                     .memory_writes(hazard_memory_writes), .wb_writes(hazard_wb_writes),
                                     .is_memory_instruction(hazard_is_memory_instruction),
+                                    .decode_ra(hazard_decode_ra), .decode_rb(hazard_decode_rb),
                                     .execute_ra(hazard_execute_ra), .execute_rb(hazard_execute_rb),
                                     .mem_dest(hazard_mem_dest), .wb_dest(hazard_wb_dest),
                                     .fwd_A_memory_execute(hazard_fwd_A_memory_execute),
                                     .fwd_B_memory_execute(hazard_fwd_B_memory_execute),
                                     .fwd_A_wb_execute(hazard_fwd_A_wb_execute),
                                     .fwd_B_wb_execute(hazard_fwd_B_wb_execute),
+                                    .fwd_A_wb_decode(hazard_fwd_A_wb_decode),
+                                    .fwd_B_wb_decode(hazard_fwd_B_wb_decode),
                                     .stall_structural(hazard_stall_structural), .stall_data(hazard_stall_data));
 
     // execution stage inputs and outputs
@@ -199,6 +203,8 @@ module top_module (clk, rst, interrupt, in, out);
     reg r2_use_ra;
     reg r2_use_rb;
     reg r2_interrupt_mode;
+    reg signed [7:0] daf; // decode fwd
+    reg signed [7:0] dbf; // decode fwd
 
     always @(posedge clk or posedge rst) begin
         if (rst || cu_load_flags) begin
@@ -279,8 +285,8 @@ module top_module (clk, rst, interrupt, in, out);
             r2_next_pc <= pc_out;
             r2_in <= in;
             r2_immediate <= mem_rd_data;
-            r2_da <= reg_ra_data;
-            r2_db <= reg_rb_data;
+            r2_da <= daf;
+            r2_db <= dbf;
             r2_ra <= reg_read_ra_address;
             r2_rb <= reg_read_rb_address;
             r2_use_ra <= cu_use_ra;
@@ -366,8 +372,8 @@ module top_module (clk, rst, interrupt, in, out);
             r3_reg_wr_en <= r2_reg_wr_en;
             r3_reg_wr_addr_sel <= r2_reg_wr_addr_sel;
             r3_reg_wr_data_sel <= r2_reg_wr_data_sel;
-            r3_ra <= r2_rb;
-            r3_rb <= r2_ra;
+            r3_ra <= r2_ra;
+            r3_rb <= r2_rb;
         end
     end
 
@@ -431,7 +437,7 @@ module top_module (clk, rst, interrupt, in, out);
     // pc load data
     always @(*) begin
         case ({r3_pop_pc, r2_pc_load_data_sel})
-            2'b00: pc_load = r2_db;
+            2'b00: pc_load = dbb;
             2'b01: pc_load = 0;
             2'b10: pc_load = mem_rd_data;
             2'b11: pc_load = mem_rd_data;
@@ -479,6 +485,24 @@ module top_module (clk, rst, interrupt, in, out);
             2'b10: dbb = r3_alu_out;
             2'b11: dbb = r3_alu_out;
         endcase
+    end
+
+    // forwarding da before r2
+    always @(*) begin
+        if (hazard_fwd_A_wb_decode) begin
+            daf = reg_wr_data;
+        end else begin
+            daf = reg_ra_data;
+        end
+    end
+
+    // forwarding db before r2
+    always @(*) begin
+        if (hazard_fwd_B_wb_decode) begin
+            dbf = reg_wr_data;
+        end else begin
+            dbf = reg_rb_data;
+        end
     end
 
     // Ex_stage A
@@ -543,11 +567,15 @@ module top_module (clk, rst, interrupt, in, out);
     assign cu_pc_saved = r3_pc_saving;
 
     // hazards unit inputs
+    assign hazard_decode_use_ra = cu_use_ra;
+    assign hazard_decode_use_rb = cu_use_rb;
     assign hazard_execute_use_ra = r2_use_ra;
     assign hazard_execute_use_rb = r2_use_rb;
     assign hazard_memory_writes = r3_wr_to_reg;
     assign hazard_wb_writes = r4_wr_to_reg;
     assign hazard_is_memory_instruction = r3_use_mem;
+    assign hazard_decode_ra = reg_read_ra_address;
+    assign hazard_decode_rb = reg_read_rb_address;
     assign hazard_execute_ra = r2_ra;
     assign hazard_execute_rb = r2_rb;
     assign hazard_mem_dest = r3_dest_addr;

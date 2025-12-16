@@ -1178,7 +1178,7 @@ always @ (*)
                                         use_ra                  ='b1;
                                         use_rb                  ='b1;
                                         alu_op                  = bypassb_op;
-                                        alu_B_sel               ='b10;    
+                                        alu_B_sel               ='b0;    
                                         flag_en                 ='b0;
                                         flag_address            ='b0;
                                         push                    ='b0;             
