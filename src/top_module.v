@@ -125,7 +125,7 @@ module top_module (clk, rst, interrupt, in, out);
                 .flush_3_instructions(cu_flush_3_instrucions),
                 .push_pc(cu_push_pc),
                 .pop_pc(cu_pop_pc),
-                .current_next_PC_sel(cu_current_next_pc_sel),git
+                .current_next_PC_sel(cu_current_next_pc_sel),
                 .pc_saving(cu_pc_saving),
                 .alu_op(cu_alu_op),
                 .alu_B_sel(cu_alu_B_sel),
