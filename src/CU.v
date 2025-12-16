@@ -100,17 +100,17 @@ localparam  NOP             = 4'b0000,
             LDI             = 4'b1101,
             STI             = 4'b1110;
 /******************************************* SIGNALS *****************************************/
-reg		                CS, NS;
-wire                    CI; 
-wire        [1:0]           ra,rb;
+reg		    [1:0]           CS, NS;
+wire        [3:0]           CI; 
+wire        [1:0]           ra, rb;
 /************************************** ASSIGN STATEMENTS ************************************/
 assign ra = instruction [3:2];
 assign rb = instruction [1:0];
 assign CI = instruction [7:4];
 /****************************************** SEQ ALWAYS ***************************************/
-always @ (posedge clk or negedge rst)
+always @ (posedge clk or posedge rst)
     begin
-        if (!rst)
+        if (rst)
             begin
                 CS <= NORMAL;
             end
@@ -119,9 +119,9 @@ always @ (posedge clk or negedge rst)
                 CS <= NS;
             end
     end
-always @ (posedge clk or negedge rst)
+always @ (posedge clk or posedge rst)
     begin
-        if (!rst)
+        if (rst)
             begin
                 pc_load_en              <='b0;
                 pc_load_data_sel        <='b0;
@@ -160,1143 +160,1149 @@ always @ (posedge clk or negedge rst)
 //Next State Logic
 always @(*)
     begin
-        case (CS)
-            NORMAL:         begin
-                                if (interrupt)
-                                    NS = SAVE_PC;
-                                else
-                                    NS = NORMAL;
-                            end
-            SAVE_PC :       begin
-                                if (pc_saved)
-                                    NS = LOAD_INERRUPT;
-                                else
-                                    NS = SAVE_PC;
-                            end
-            LOAD_INERRUPT : begin
-                                NS = RUN_INTERRUPT;
-                            end
-            RUN_INTERRUPT : begin
-                                if (instruction [7:2] =={UNCOND_JUMP ,2'b11} )
-                                    NS = NORMAL;
-                                else    
+        if (!rst) begin
+            case (CS)
+                NORMAL:         begin
+                                    if (interrupt)
+                                        NS = SAVE_PC;
+                                    else
+                                        NS = NORMAL;
+                                end
+                SAVE_PC :       begin
+                                    if (pc_saved)
+                                        NS = LOAD_INERRUPT;
+                                    else
+                                        NS = SAVE_PC;
+                                end
+                LOAD_INERRUPT : begin
                                     NS = RUN_INTERRUPT;
-                            end
-            default :       begin
-                                NS = NORMAL;
-                            end
-        endcase
+                                end
+                RUN_INTERRUPT : begin
+                                    if (instruction [7:2] =={UNCOND_JUMP ,2'b11} )
+                                        NS = NORMAL;
+                                    else    
+                                        NS = RUN_INTERRUPT;
+                                end
+                default :       begin
+                                    NS = NORMAL;
+                                end
+            endcase
+        end
     end
 //Interrupt Signals
 always @ (*)
     begin
-        case (CS)
-            NORMAL  :       begin
-                                push_pc             = 'b0;
-                                pop_pc              = 'b0;
-                                store_flags         = 'b0;
-                                load_flags          = 'b0;
-                                pc_saving           = 'b0;
-                                pc_load_data_sel    = 'b0;
-                                pc_load_en          = 'b0;
-                                current_next_PC_sel = 'b0;
-                                case (CI)
-                                    COND_JUMP : begin
-                                                    pc_load_en          ='b1;
-                                                end
-                                    LOOP :      begin
-                                                    pc_load_en          ='b1;
-                                                end
-                                    UNCOND_JUMP:begin
-                                                    if (ra == 'b00)
-                                                        pc_load_en ='b1;
-                                                    else if (ra == 'b01)
-                                                        begin
+        if (!rst) begin
+            case (CS)
+                NORMAL  :       begin
+                                    push_pc             = 'b0;
+                                    pop_pc              = 'b0;
+                                    store_flags         = 'b0;
+                                    load_flags          = 'b0;
+                                    pc_saving           = 'b0;
+                                    pc_load_data_sel    = 'b0;
+                                    pc_load_en          = 'b0;
+                                    current_next_PC_sel = 'b0;
+                                    case (CI)
+                                        COND_JUMP : begin
+                                                        pc_load_en          ='b1;
+                                                    end
+                                        LOOP :      begin
+                                                        pc_load_en          ='b1;
+                                                    end
+                                        UNCOND_JUMP:begin
+                                                        if (ra == 'b00)
                                                             pc_load_en ='b1;
-                                                            push_pc = 'b1;
-                                                        end
-                                                    else if (ra == 'b10)
-                                                        pop_pc  ='b1;
-                                                    else if (ra == 'b11)
-                                                        begin
-                                                            pop_pc ='b1;
-                                                            store_flags ='b1;       
-                                                        end
-                                                end
-                                    default :   begin
-                                                    push_pc             = 'b0;
-                                                    pop_pc              = 'b0;
-                                                    store_flags         = 'b0;
-                                                    load_flags          = 'b0;
-                                                    pc_saving           = 'b0;
-                                                    pc_load_data_sel    = 'b0;
-                                                    pc_load_en          = 'b0;
-                                                    current_next_PC_sel = 'b0;
-                                                end
-                                endcase
-                            end
-            SAVE_PC :       begin
-                                push_pc             = 'b1;
-                                pop_pc              = 'b0;
-                                store_flags         = 'b1;
-                                load_flags          = 'b0;
-                                pc_saving           = 'b1;
-                                pc_load_data_sel    = 'b0;
-                                pc_load_en          = 'b0;    
-                                current_next_PC_sel = 'b1;  
-                            end
-            LOAD_INERRUPT : begin
-                                push_pc             = 'b0;
-                                pop_pc              = 'b0;
-                                store_flags         = 'b0;
-                                load_flags          = 'b0;
-                                pc_saving           = 'b0;
-                                pc_load_data_sel    = 'b1;
-                                pc_load_en          = 'b1;
-                                current_next_PC_sel = 'b0;
-                            end
-            RUN_INTERRUPT : begin
-                                if (instruction [7:2] !={UNCOND_JUMP ,2'b11})
-                                    begin
-                                        push_pc             = 'b0;
-                                        pop_pc              = 'b0;
-                                        store_flags         = 'b0;
-                                        load_flags          = 'b0;
-                                        pc_saving           = 'b0;
-                                        pc_load_data_sel    = 'b0;
-                                        pc_load_en          = 'b0;
-                                        current_next_PC_sel = 'b0;
-                                    end
-                                else
-                                    begin
-                                        push_pc             = 'b0;
-                                        pop_pc              = 'b1;
-                                        store_flags         = 'b0;
-                                        load_flags          = 'b1;
-                                        pc_saving           = 'b0;
-                                        pc_load_data_sel    = 'b0;
-                                        pc_load_en          = 'b1;
-                                        current_next_PC_sel = 'b0;
-                                    end
-                            end
-            default :       begin
-                                push_pc             = 'b0;
-                                pop_pc              = 'b0;
-                                store_flags         = 'b0;
-                                load_flags          = 'b0;
-                                pc_saving           = 'b0;
-                                pc_load_data_sel    = 'b0;
-                                pc_load_en          = 'b0;
-                                current_next_PC_sel = 'b0;
-                            end
-        endcase
+                                                        else if (ra == 'b01)
+                                                            begin
+                                                                pc_load_en ='b1;
+                                                                push_pc = 'b1;
+                                                            end
+                                                        else if (ra == 'b10)
+                                                            pop_pc  ='b1;
+                                                        else if (ra == 'b11)
+                                                            begin
+                                                                pop_pc ='b1;
+                                                                store_flags ='b1;       
+                                                            end
+                                                    end
+                                        default :   begin
+                                                        push_pc             = 'b0;
+                                                        pop_pc              = 'b0;
+                                                        store_flags         = 'b0;
+                                                        load_flags          = 'b0;
+                                                        pc_saving           = 'b0;
+                                                        pc_load_data_sel    = 'b0;
+                                                        pc_load_en          = 'b0;
+                                                        current_next_PC_sel = 'b0;
+                                                    end
+                                    endcase
+                                end
+                SAVE_PC :       begin
+                                    push_pc             = 'b1;
+                                    pop_pc              = 'b0;
+                                    store_flags         = 'b1;
+                                    load_flags          = 'b0;
+                                    pc_saving           = 'b1;
+                                    pc_load_data_sel    = 'b0;
+                                    pc_load_en          = 'b0;    
+                                    current_next_PC_sel = 'b1;  
+                                end
+                LOAD_INERRUPT : begin
+                                    push_pc             = 'b0;
+                                    pop_pc              = 'b0;
+                                    store_flags         = 'b0;
+                                    load_flags          = 'b0;
+                                    pc_saving           = 'b0;
+                                    pc_load_data_sel    = 'b1;
+                                    pc_load_en          = 'b1;
+                                    current_next_PC_sel = 'b0;
+                                end
+                RUN_INTERRUPT : begin
+                                    if (instruction [7:2] !={UNCOND_JUMP ,2'b11})
+                                        begin
+                                            push_pc             = 'b0;
+                                            pop_pc              = 'b0;
+                                            store_flags         = 'b0;
+                                            load_flags          = 'b0;
+                                            pc_saving           = 'b0;
+                                            pc_load_data_sel    = 'b0;
+                                            pc_load_en          = 'b0;
+                                            current_next_PC_sel = 'b0;
+                                        end
+                                    else
+                                        begin
+                                            push_pc             = 'b0;
+                                            pop_pc              = 'b1;
+                                            store_flags         = 'b0;
+                                            load_flags          = 'b1;
+                                            pc_saving           = 'b0;
+                                            pc_load_data_sel    = 'b0;
+                                            pc_load_en          = 'b1;
+                                            current_next_PC_sel = 'b0;
+                                        end
+                                end
+                default :       begin
+                                    push_pc             = 'b0;
+                                    pop_pc              = 'b0;
+                                    store_flags         = 'b0;
+                                    load_flags          = 'b0;
+                                    pc_saving           = 'b0;
+                                    pc_load_data_sel    = 'b0;
+                                    pc_load_en          = 'b0;
+                                    current_next_PC_sel = 'b0;
+                                end
+            endcase
+        end
     end
 always @ (*)
     begin
-        if (CS == NORMAL || CS == RUN_INTERRUPT)
-            begin
-                case(CI)
-                    NOP :       begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b0;
-                                    use_rb                  ='b0;
-                                    alu_op                  ='b0;
-                                    alu_B_sel               ='b0;    
-                                    flag_en                 ='b0;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b0;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b0;
-                                    destination_addr        ='b0;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;
-                                    out_en                  ='b0;
-                                end 
-                    MOV :       begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =bypassb_op;
-                                    alu_B_sel               ='b1;    
-                                    flag_en                 ='b0;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;
-                                    out_en                  ='b0;
-                                end
-                    ADD :       begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =add_op;
-                                    alu_B_sel               ='b1;    
-                                    flag_en                 ='b1;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end
-                    SUB :       begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =sub_op;
-                                    alu_B_sel               ='b1;    
-                                    flag_en                 ='b1;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end  
-                    AND :       begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =and_op;
-                                    alu_B_sel               ='b1;    
-                                    flag_en                 ='b1;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end
-                    OR :        begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =or_op;
-                                    alu_B_sel               ='b1;    
-                                    flag_en                 ='b1;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end
-                    CARRIES:    begin
-                                    case(ra)
-                                        'b00 :  begin       //RLC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =rlcb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //RRC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =rrcb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //SETC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b0;
-                                                    alu_op                  =setc_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;       
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b11 :  begin       //CLRC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b0;
-                                                    alu_op                  =clrc_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;       
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end
-                    STACK_IO:   begin
-                                    case(ra)
-                                        'b00 :  begin       //PUSH
-                                                    read_reg_a_sel          ='b1;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =bypassb_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b1;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b1;
-                                                    mem_interface_sel       ='b0;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //pop
-                                                    read_reg_a_sel          ='b1;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =bypassb_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b1;              
-                                                    mem_wr_en               ='b0;
-                                                    mem_interface_sel       ='b0;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b1;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //OUT
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =bypassb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;       
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b1;
-                                                end
-                                        'b11 :  begin       //IN
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =bypassb_op;
-                                                    alu_B_sel               ='b11;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;       
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end
-                    COMP_STEPS: begin
-                                    case(ra)
-                                        'b00 :  begin       //NOT
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =notb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //NEG
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =negb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //INC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =incb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b11 :  begin       //DEC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  =decb_op;
-                                                    alu_B_sel               ='b1;    
-                                                    flag_en                 ='b1;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end
-                    COND_JUMP:  begin
-                                    case(ra)
-                                        'b00 :  begin       //JZ
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //JN
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b1;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //JC
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b10;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b11 :  begin       //JV
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b11;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end
-                    LOOP :      begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  =decb_op;
-                                    alu_B_sel               ='b0;    
-                                    flag_en                 ='b0;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    if (CS == NORMAL)
-                                        mem_interface_sel   ='b1;
-                                    else
-                                        mem_interface_sel   ='b10;
-                                    use_memory              ='b0;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = ra;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b1;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b1;   
-                                    out_en                  ='b0;
-                                end
-                    UNCOND_JUMP:begin
-                                    case(ra)
-                                        'b00 :  begin       //JMP
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b10;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //CALL
-                                                    read_reg_a_sel          ='b1;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b1;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b1;
-                                                    mem_interface_sel       ='b0;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b1;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b10;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //RET
-                                                    read_reg_a_sel          ='b1;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b0;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b1;              
-                                                    mem_wr_en               ='b0;
-                                                    mem_interface_sel       ='b0;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b1;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b11 :  begin       //RTI
-                                                    read_reg_a_sel          ='b1;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b0;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b1;              
-                                                    mem_wr_en               ='b0;
-                                                    mem_interface_sel       ='b0;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b1;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end
-                    LOAD_STORE: begin
-                                    case(ra)
-                                        'b00 :  begin       //LDM
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b10;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b1;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b10;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b01 :  begin       //LDD
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b10;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    mem_interface_sel       ='b11;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b1;
-                                                    write_reg_address_sel   ='b1;
-                                                    write_reg_data_sel      ='b1;
-                                                    write_to_reg            ='b1;
-                                                    destination_addr        = rb;
-                                                    flush_1_instruction     ='b1;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b10;   
-                                                    out_en                  ='b0;
-                                                end
-                                        'b10 :  begin       //STD
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b1;
-                                                    alu_op                  = bypassb_op;
-                                                    alu_B_sel               ='b10;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b1;
-                                                    mem_interface_sel       ='b11;
-                                                    use_memory              ='b1;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b1;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                        default:begin       
-                                                    read_reg_a_sel          ='b0;
-                                                    read_reg_b_sel          ='b0;
-                                                    use_ra                  ='b0;
-                                                    use_rb                  ='b0;
-                                                    alu_op                  ='b0;
-                                                    alu_B_sel               ='b0;    
-                                                    flag_en                 ='b0;
-                                                    flag_address            ='b0;
-                                                    push                    ='b0;             
-                                                    pop                     ='b0;              
-                                                    mem_wr_en               ='b0;
-                                                    if (CS == NORMAL)
-                                                        mem_interface_sel   ='b1;
-                                                    else
-                                                        mem_interface_sel   ='b10;
-                                                    use_memory              ='b0;
-                                                    write_reg_en            ='b0;
-                                                    write_reg_address_sel   ='b0;
-                                                    write_reg_data_sel      ='b0;
-                                                    write_to_reg            ='b0;
-                                                    destination_addr        ='b0;
-                                                    flush_1_instruction     ='b0;
-                                                    flush_2_instructions    ='b0;
-                                                    flush_3_instructions    ='b0;
-                                                    branch_flag             ='b0;   
-                                                    out_en                  ='b0;
-                                                end
-                                    endcase
-                                end  
-                    LDI :       begin       
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  = bypassb_op;
-                                    alu_B_sel               ='b10;    
-                                    flag_en                 ='b0;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b0;
-                                    mem_interface_sel       ='b11;
-                                    use_memory              ='b1;
-                                    write_reg_en            ='b1;
-                                    write_reg_address_sel   ='b1;
-                                    write_reg_data_sel      ='b1;
-                                    write_to_reg            ='b1;
-                                    destination_addr        = rb;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end  
-                STI :           begin
-                                    read_reg_a_sel          ='b0;
-                                    read_reg_b_sel          ='b0;
-                                    use_ra                  ='b1;
-                                    use_rb                  ='b1;
-                                    alu_op                  = bypassb_op;
-                                    alu_B_sel               ='b0;    
-                                    flag_en                 ='b0;
-                                    flag_address            ='b0;
-                                    push                    ='b0;             
-                                    pop                     ='b0;              
-                                    mem_wr_en               ='b1;
-                                    mem_interface_sel       ='b11;
-                                    use_memory              ='b1;
-                                    write_reg_en            ='b0;
-                                    write_reg_address_sel   ='b0;
-                                    write_reg_data_sel      ='b0;
-                                    write_to_reg            ='b0;
-                                    destination_addr        ='b0;
-                                    flush_1_instruction     ='b0;
-                                    flush_2_instructions    ='b0;
-                                    flush_3_instructions    ='b0;
-                                    branch_flag             ='b0;   
-                                    out_en                  ='b0;
-                                end        
-                endcase
-            end
-        else if (CS == SAVE_PC)
-            begin
-                read_reg_a_sel          ='b1;
-                read_reg_b_sel          ='b0;
-                use_ra                  ='b0;
-                use_rb                  ='b0;
-                alu_op                  = bypassb_op;
-                alu_B_sel               ='b0;    
-                flag_en                 ='b0;
-                flag_address            ='b0;
-                push                    ='b1;             
-                pop                     ='b0;              
-                mem_wr_en               ='b1;
-                mem_interface_sel       ='b0;
-                use_memory              ='b1;
-                write_reg_en            ='b0;
-                write_reg_address_sel   ='b0;
-                write_reg_data_sel      ='b0;
-                write_to_reg            ='b0;
-                destination_addr        ='b0;
-                flush_1_instruction     ='b0;
-                flush_2_instructions    ='b0;
-                flush_3_instructions    ='b1;
-                branch_flag             ='b0;   
-                out_en                  ='b0;
-            end
-        else if (CS == LOAD_INERRUPT)
-            begin
-                read_reg_a_sel          ='b0;
-                read_reg_b_sel          ='b0;
-                use_ra                  ='b0;
-                use_rb                  ='b0;
-                alu_op                  ='b0;
-                alu_B_sel               ='b0;    
-                flag_en                 ='b0;
-                flag_address            ='b0;
-                push                    ='b0;             
-                pop                     ='b0;              
-                mem_wr_en               ='b0;
-                mem_interface_sel       ='b10;
-                use_memory              ='b0;
-                write_reg_en            ='b0;
-                write_reg_address_sel   ='b0;
-                write_reg_data_sel      ='b0;
-                write_to_reg            ='b0;
-                destination_addr        ='b0;
-                flush_1_instruction     ='b0;
-                flush_2_instructions    ='b1;
-                flush_3_instructions    ='b0;
-                branch_flag             ='b10;   
-                out_en                  ='b0;
-            end
-        else
-            begin
-                read_reg_a_sel          ='b0;
-                read_reg_b_sel          ='b0;
-                use_ra                  ='b0;
-                use_rb                  ='b0;
-                alu_op                  ='b0;
-                alu_B_sel               ='b0;    
-                flag_en                 ='b0;
-                flag_address            ='b0;
-                push                    ='b0;             
-                pop                     ='b0;              
-                mem_wr_en               ='b0;
-                mem_interface_sel       ='b0;
-                use_memory              ='b0;
-                write_reg_en            ='b0;
-                write_reg_address_sel   ='b0;
-                write_reg_data_sel      ='b0;
-                write_to_reg            ='b0;
-                destination_addr        ='b0;
-                flush_1_instruction     ='b0;
-                flush_2_instructions    ='b0;
-                flush_3_instructions    ='b0;
-                branch_flag             ='b0;   
-                out_en                  ='b0;
-            end
+        if (!rst) begin
+            if (CS == NORMAL || CS == RUN_INTERRUPT)
+                begin
+                    case(CI)
+                        NOP :       begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b0;
+                                        use_rb                  ='b0;
+                                        alu_op                  ='b0;
+                                        alu_B_sel               ='b0;    
+                                        flag_en                 ='b0;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b0;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b0;
+                                        destination_addr        ='b0;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;
+                                        out_en                  ='b0;
+                                    end 
+                        MOV :       begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =bypassb_op;
+                                        alu_B_sel               ='b1;    
+                                        flag_en                 ='b0;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;
+                                        out_en                  ='b0;
+                                    end
+                        ADD :       begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =add_op;
+                                        alu_B_sel               ='b1;    
+                                        flag_en                 ='b1;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end
+                        SUB :       begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =sub_op;
+                                        alu_B_sel               ='b1;    
+                                        flag_en                 ='b1;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end  
+                        AND :       begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =and_op;
+                                        alu_B_sel               ='b1;    
+                                        flag_en                 ='b1;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end
+                        OR :        begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =or_op;
+                                        alu_B_sel               ='b1;    
+                                        flag_en                 ='b1;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end
+                        CARRIES:    begin
+                                        case(ra)
+                                            'b00 :  begin       //RLC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =rlcb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //RRC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =rrcb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //SETC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b0;
+                                                        alu_op                  =setc_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;       
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b11 :  begin       //CLRC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b0;
+                                                        alu_op                  =clrc_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;       
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end
+                        STACK_IO:   begin
+                                        case(ra)
+                                            'b00 :  begin       //PUSH
+                                                        read_reg_a_sel          ='b1;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =bypassb_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b1;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b1;
+                                                        mem_interface_sel       ='b0;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //pop
+                                                        read_reg_a_sel          ='b1;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =bypassb_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b1;              
+                                                        mem_wr_en               ='b0;
+                                                        mem_interface_sel       ='b0;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b1;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //OUT
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =bypassb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;       
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b1;
+                                                    end
+                                            'b11 :  begin       //IN
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =bypassb_op;
+                                                        alu_B_sel               ='b11;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;       
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end
+                        COMP_STEPS: begin
+                                        case(ra)
+                                            'b00 :  begin       //NOT
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =notb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //NEG
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =negb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //INC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =incb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b11 :  begin       //DEC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  =decb_op;
+                                                        alu_B_sel               ='b1;    
+                                                        flag_en                 ='b1;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end
+                        COND_JUMP:  begin
+                                        case(ra)
+                                            'b00 :  begin       //JZ
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //JN
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b1;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //JC
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b10;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b11 :  begin       //JV
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b11;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end
+                        LOOP :      begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  =decb_op;
+                                        alu_B_sel               ='b0;    
+                                        flag_en                 ='b0;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        if (CS == NORMAL)
+                                            mem_interface_sel   ='b1;
+                                        else
+                                            mem_interface_sel   ='b10;
+                                        use_memory              ='b0;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = ra;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b1;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b1;   
+                                        out_en                  ='b0;
+                                    end
+                        UNCOND_JUMP:begin
+                                        case(ra)
+                                            'b00 :  begin       //JMP
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b10;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //CALL
+                                                        read_reg_a_sel          ='b1;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b1;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b1;
+                                                        mem_interface_sel       ='b0;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b1;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b10;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //RET
+                                                        read_reg_a_sel          ='b1;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b0;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b1;              
+                                                        mem_wr_en               ='b0;
+                                                        mem_interface_sel       ='b0;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b1;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b11 :  begin       //RTI
+                                                        read_reg_a_sel          ='b1;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b0;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b1;              
+                                                        mem_wr_en               ='b0;
+                                                        mem_interface_sel       ='b0;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b1;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end
+                        LOAD_STORE: begin
+                                        case(ra)
+                                            'b00 :  begin       //LDM
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b10;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b1;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b10;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b01 :  begin       //LDD
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b10;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        mem_interface_sel       ='b11;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b1;
+                                                        write_reg_address_sel   ='b1;
+                                                        write_reg_data_sel      ='b1;
+                                                        write_to_reg            ='b1;
+                                                        destination_addr        = rb;
+                                                        flush_1_instruction     ='b1;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b10;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            'b10 :  begin       //STD
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b1;
+                                                        alu_op                  = bypassb_op;
+                                                        alu_B_sel               ='b10;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b1;
+                                                        mem_interface_sel       ='b11;
+                                                        use_memory              ='b1;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b1;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                            default:begin       
+                                                        read_reg_a_sel          ='b0;
+                                                        read_reg_b_sel          ='b0;
+                                                        use_ra                  ='b0;
+                                                        use_rb                  ='b0;
+                                                        alu_op                  ='b0;
+                                                        alu_B_sel               ='b0;    
+                                                        flag_en                 ='b0;
+                                                        flag_address            ='b0;
+                                                        push                    ='b0;             
+                                                        pop                     ='b0;              
+                                                        mem_wr_en               ='b0;
+                                                        if (CS == NORMAL)
+                                                            mem_interface_sel   ='b1;
+                                                        else
+                                                            mem_interface_sel   ='b10;
+                                                        use_memory              ='b0;
+                                                        write_reg_en            ='b0;
+                                                        write_reg_address_sel   ='b0;
+                                                        write_reg_data_sel      ='b0;
+                                                        write_to_reg            ='b0;
+                                                        destination_addr        ='b0;
+                                                        flush_1_instruction     ='b0;
+                                                        flush_2_instructions    ='b0;
+                                                        flush_3_instructions    ='b0;
+                                                        branch_flag             ='b0;   
+                                                        out_en                  ='b0;
+                                                    end
+                                        endcase
+                                    end  
+                        LDI :       begin       
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  = bypassb_op;
+                                        alu_B_sel               ='b10;    
+                                        flag_en                 ='b0;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b0;
+                                        mem_interface_sel       ='b11;
+                                        use_memory              ='b1;
+                                        write_reg_en            ='b1;
+                                        write_reg_address_sel   ='b1;
+                                        write_reg_data_sel      ='b1;
+                                        write_to_reg            ='b1;
+                                        destination_addr        = rb;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end  
+                    STI :           begin
+                                        read_reg_a_sel          ='b0;
+                                        read_reg_b_sel          ='b0;
+                                        use_ra                  ='b1;
+                                        use_rb                  ='b1;
+                                        alu_op                  = bypassb_op;
+                                        alu_B_sel               ='b0;    
+                                        flag_en                 ='b0;
+                                        flag_address            ='b0;
+                                        push                    ='b0;             
+                                        pop                     ='b0;              
+                                        mem_wr_en               ='b1;
+                                        mem_interface_sel       ='b11;
+                                        use_memory              ='b1;
+                                        write_reg_en            ='b0;
+                                        write_reg_address_sel   ='b0;
+                                        write_reg_data_sel      ='b0;
+                                        write_to_reg            ='b0;
+                                        destination_addr        ='b0;
+                                        flush_1_instruction     ='b0;
+                                        flush_2_instructions    ='b0;
+                                        flush_3_instructions    ='b0;
+                                        branch_flag             ='b0;   
+                                        out_en                  ='b0;
+                                    end        
+                    endcase
+                end
+            else if (CS == SAVE_PC)
+                begin
+                    read_reg_a_sel          ='b1;
+                    read_reg_b_sel          ='b0;
+                    use_ra                  ='b0;
+                    use_rb                  ='b0;
+                    alu_op                  = bypassb_op;
+                    alu_B_sel               ='b0;    
+                    flag_en                 ='b0;
+                    flag_address            ='b0;
+                    push                    ='b1;             
+                    pop                     ='b0;              
+                    mem_wr_en               ='b1;
+                    mem_interface_sel       ='b0;
+                    use_memory              ='b1;
+                    write_reg_en            ='b0;
+                    write_reg_address_sel   ='b0;
+                    write_reg_data_sel      ='b0;
+                    write_to_reg            ='b0;
+                    destination_addr        ='b0;
+                    flush_1_instruction     ='b0;
+                    flush_2_instructions    ='b0;
+                    flush_3_instructions    ='b1;
+                    branch_flag             ='b0;   
+                    out_en                  ='b0;
+                end
+            else if (CS == LOAD_INERRUPT)
+                begin
+                    read_reg_a_sel          ='b0;
+                    read_reg_b_sel          ='b0;
+                    use_ra                  ='b0;
+                    use_rb                  ='b0;
+                    alu_op                  ='b0;
+                    alu_B_sel               ='b0;    
+                    flag_en                 ='b0;
+                    flag_address            ='b0;
+                    push                    ='b0;             
+                    pop                     ='b0;              
+                    mem_wr_en               ='b0;
+                    mem_interface_sel       ='b10;
+                    use_memory              ='b0;
+                    write_reg_en            ='b0;
+                    write_reg_address_sel   ='b0;
+                    write_reg_data_sel      ='b0;
+                    write_to_reg            ='b0;
+                    destination_addr        ='b0;
+                    flush_1_instruction     ='b0;
+                    flush_2_instructions    ='b1;
+                    flush_3_instructions    ='b0;
+                    branch_flag             ='b10;   
+                    out_en                  ='b0;
+                end
+            else
+                begin
+                    read_reg_a_sel          ='b0;
+                    read_reg_b_sel          ='b0;
+                    use_ra                  ='b0;
+                    use_rb                  ='b0;
+                    alu_op                  ='b0;
+                    alu_B_sel               ='b0;    
+                    flag_en                 ='b0;
+                    flag_address            ='b0;
+                    push                    ='b0;             
+                    pop                     ='b0;              
+                    mem_wr_en               ='b0;
+                    mem_interface_sel       ='b0;
+                    use_memory              ='b0;
+                    write_reg_en            ='b0;
+                    write_reg_address_sel   ='b0;
+                    write_reg_data_sel      ='b0;
+                    write_to_reg            ='b0;
+                    destination_addr        ='b0;
+                    flush_1_instruction     ='b0;
+                    flush_2_instructions    ='b0;
+                    flush_3_instructions    ='b0;
+                    branch_flag             ='b0;   
+                    out_en                  ='b0;
+                end
+        end
     end
 
 endmodule
