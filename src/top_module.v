@@ -21,8 +21,8 @@ module top_module (clk, rst, interrupt, in, out);
     wire [7:0] mem_rd_data;
 
     // mem inst.
-    mem_wrapper mem_wrapper_inst(.clk(clk), .rst(rst), .wr_en(mem_wr_en), .pop(mem_pop),
-                                    .sel(mem_sel), .SP(mem_sp), .instruction(mem_instruction),
+    mem_wrapper mem_wrapper_inst(.clk(clk), .wr_en(mem_wr_en), .pop(mem_pop),
+                                    .sel(mem_sel), .SP(mem_sp), .Instruction(mem_instruction),
                                     .interrupt(mem_interrupt), .data(mem_data),
                                     .wr_data(mem_wr_data), .rd_data(mem_rd_data));
 
@@ -55,7 +55,7 @@ module top_module (clk, rst, interrupt, in, out);
                                     .fwd_B_memory_execute(hazard_fwd_B_memory_execute),
                                     .fwd_A_wb_execute(hazard_fwd_A_wb_execute),
                                     .fwd_B_wb_execute(hazard_fwd_B_wb_execute),
-                                    .stall_strucural(hazard_stall_structural), .stall_data(hazard_stall_data));
+                                    .stall_structural(hazard_stall_structural), .stall_data(hazard_stall_data));
 
     // execution stage inputs and outputs
     wire ex_en_ccr, ex_load_status, ex_store_status;
@@ -70,7 +70,7 @@ module top_module (clk, rst, interrupt, in, out);
     EX_stage EX_stage_inst(.clk(clk), .rst(rst), .EN_CCR(ex_en_ccr),
                             .load_status(ex_load_status), .store_status(ex_store_status),
                             .sel(ex_sel), .opcode(ex_opcode), .A(ex_A), .B(ex_B),
-                            .flag(ex_flag), .z(ex_z), .out(ex_out));
+                            .flag(ex_flag), .Z(ex_z), .out(ex_out));
 
     // CU inputs and outputs
     wire cu_pc_saved;
@@ -120,12 +120,12 @@ module top_module (clk, rst, interrupt, in, out);
                 .read_reg_b_sel(cu_read_reg_b_sel),
                 .push(cu_push),
                 .pop(cu_pop),
-                .flush_1_instrucion(cu_flush_1_instrucion),
-                .flush_2_instrucions(cu_flush_2_instrucions),
-                .flush_3_instrucions(cu_flush_3_instrucions),
+                .flush_1_instruction(cu_flush_1_instrucion),
+                .flush_2_instructions(cu_flush_2_instrucions),
+                .flush_3_instructions(cu_flush_3_instrucions),
                 .push_pc(cu_push_pc),
                 .pop_pc(cu_pop_pc),
-                .current_next_pc_sel(cu_current_next_pc_sel),
+                .current_next_PC_sel(cu_current_next_pc_sel),git
                 .pc_saving(cu_pc_saving),
                 .alu_op(cu_alu_op),
                 .alu_B_sel(cu_alu_B_sel),
