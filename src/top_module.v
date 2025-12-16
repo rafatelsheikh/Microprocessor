@@ -141,13 +141,15 @@ module top_module (clk, rst, interrupt, in, out);
                 .write_to_reg(cu_write_to_reg),
                 .destination_addr(cu_destination_addr),
                 .use_memory(cu_use_memory),
-                .out_en(cu_out_en)
+                .out_en(cu_out_en),
                 .use_ra(cu_use_ra),
                 .use_rb(cu_use_rb));
 
     // F/D register
     reg [7:0] r1_instruction;
     reg [7:0] r1_pc_out;
+    reg r2_flush_2_instructions; // D/Ex forwarded
+    reg r3_flush_3_instructions; // Ex/M forwarded
 
     always @(posedge clk or posedge rst) begin
         if (rst || cu_flush_1_instrucion ||
@@ -166,7 +168,6 @@ module top_module (clk, rst, interrupt, in, out);
     reg r2_reg_wr_addr_sel;
     reg r2_reg_wr_data_sel;
     reg r2_pop;
-    reg r2_flush_2_instructions;
     reg r2_flush_3_instructions;
     reg r2_push_pc;
     reg r2_pop_pc;
@@ -187,7 +188,7 @@ module top_module (clk, rst, interrupt, in, out);
     reg [1:0] r2_dest_addr;
     reg r2_use_mem;
     reg r2_out_en;
-    reg [7:0] r2_pc_out
+    reg [7:0] r2_pc_out;
     reg [7:0] r2_next_pc;
     reg signed [7:0] r2_in;
     reg signed [7:0] r2_immediate;
@@ -206,7 +207,7 @@ module top_module (clk, rst, interrupt, in, out);
             r2_interrupt_mode <= 1;
         end
 
-        if (rst || (r2_flush_2_instrucions && pc_load_en) ||
+        if (rst || (r2_flush_2_instructions && pc_load_en) ||
             r3_flush_3_instructions) begin
             r2_reg_wr_en <= 0;
             r2_reg_wr_addr_sel <= 0;
@@ -280,8 +281,8 @@ module top_module (clk, rst, interrupt, in, out);
             r2_immediate <= mem_rd_data;
             r2_da <= reg_ra_data;
             r2_db <= reg_rb_data;
-            r2_ra <= reg_read_ra_address
-            r2_rb <= reg_read_rb_address
+            r2_ra <= reg_read_ra_address;
+            r2_rb <= reg_read_rb_address;
             r2_use_ra <= cu_use_ra;
             r2_use_rb <= cu_use_rb;
         end
@@ -301,7 +302,6 @@ module top_module (clk, rst, interrupt, in, out);
     reg r3_use_mem;
     reg r3_out_en;
     reg r3_mem_wr_en;
-    reg r3_flush_3_instructions;
     reg r3_curr_pc_sel;
     reg r3_pc_saving;
     reg r3_reg_wr_en;
@@ -309,7 +309,8 @@ module top_module (clk, rst, interrupt, in, out);
     reg r3_reg_wr_data_sel;
     reg [1:0] r3_ra;
     reg [1:0] r3_rb;
-    reg r3_interrupt_mode
+    reg r3_interrupt_mode;
+    reg signed [7:0] dbb; // from the forwarding dbb
 
     always @(posedge clk or posedge rst) begin
         if (rst || r2_load_flags) begin
@@ -471,8 +472,6 @@ module top_module (clk, rst, interrupt, in, out);
     end
 
     // forwarding db
-    reg signed [7:0] dbb;
-
     always @(*) begin
         case ({hazard_fwd_B_memory_execute, hazard_fwd_B_wb_execute})
             2'b00: dbb = r2_db;
