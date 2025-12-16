@@ -20,5 +20,11 @@ end
 
 // async read 
 assign rd_data = mem[address];
+
+
+//for testing
+initial begin
+    $readmemh("test.mem", mem);  
+end
     
 endmodule
