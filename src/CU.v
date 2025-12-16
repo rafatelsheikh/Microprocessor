@@ -119,80 +119,52 @@ always @ (posedge clk or posedge rst)
                 CS <= NS;
             end
     end
-always @ (posedge clk or posedge rst)
-    begin
-        if (rst)
-            begin
-                pc_load_en              <='b0;
-                pc_load_data_sel        <='b0;
-                read_reg_a_sel          <='b0;
-                read_reg_b_sel          <='b0;
-                use_ra                  <='b0;
-                use_rb                  <='b0;
-                alu_op                  <='b0;
-                alu_B_sel               <='b0;    
-                flag_en                 <='b0;
-                flag_address            <='b0;
-                push                    <='b0;             
-                pop                     <='b0;              
-                push_pc                 <='b0;
-                pop_pc                  <='b0;
-                store_flags             <='b0;
-                load_flags              <='b0;
-                mem_wr_en               <='b0;
-                mem_interface_sel       <='b1;
-                use_memory              <='b0;
-                write_reg_en            <='b0;
-                write_reg_address_sel   <='b0;
-                write_reg_data_sel      <='b0;
-                write_to_reg            <='b0;
-                destination_addr        <='b0;
-                current_next_PC_sel     <='b0;
-                pc_saving               <='b0;
-                flush_1_instruction     <='b0;
-                flush_2_instructions    <='b0;
-                flush_3_instructions    <='b0;
-                branch_flag             <='b0;
-                out_en                  <='b0;
-            end
-    end
 /***************************************** COMB ALWAYS ***************************************/
 //Next State Logic
 always @(*)
     begin
-        if (!rst) begin
-            case (CS)
-                NORMAL:         begin
-                                    if (interrupt)
-                                        NS = SAVE_PC;
-                                    else
-                                        NS = NORMAL;
-                                end
-                SAVE_PC :       begin
-                                    if (pc_saved)
-                                        NS = LOAD_INERRUPT;
-                                    else
-                                        NS = SAVE_PC;
-                                end
-                LOAD_INERRUPT : begin
-                                    NS = RUN_INTERRUPT;
-                                end
-                RUN_INTERRUPT : begin
-                                    if (instruction [7:2] =={UNCOND_JUMP ,2'b11} )
-                                        NS = NORMAL;
-                                    else    
-                                        NS = RUN_INTERRUPT;
-                                end
-                default :       begin
+        case (CS)
+            NORMAL:         begin
+                                if (interrupt)
+                                    NS = SAVE_PC;
+                                else
                                     NS = NORMAL;
-                                end
-            endcase
-        end
+                            end
+            SAVE_PC :       begin
+                                NS = LOAD_INERRUPT;
+                            end
+            LOAD_INERRUPT : begin
+                                if (pc_saved)
+                                    NS = RUN_INTERRUPT;
+                                else
+                                    NS = LOAD_INERRUPT;
+                            end
+            RUN_INTERRUPT : begin
+                                if (instruction [7:2] =={UNCOND_JUMP ,2'b11} )
+                                    NS = NORMAL;
+                                else    
+                                    NS = RUN_INTERRUPT;
+                            end
+            default :       begin
+                                NS = NORMAL;
+                            end
+        endcase
     end
 //Interrupt Signals
 always @ (*)
     begin
-        if (!rst) begin
+        if (rst)
+            begin
+                push_pc                 ='b0;
+                pop_pc                  ='b0;
+                store_flags             ='b0;
+                load_flags              ='b0;
+                pc_load_en              ='b0;
+                pc_load_data_sel        ='b0;
+                pc_saving               ='b0;
+                current_next_PC_sel     ='b0;
+            end
+        else begin
             case (CS)
                 NORMAL  :       begin
                                     push_pc             = 'b0;
@@ -297,7 +269,32 @@ always @ (*)
     end
 always @ (*)
     begin
-        if (!rst) begin
+        if (rst) begin
+            read_reg_a_sel          ='b0;
+            read_reg_b_sel          ='b0;
+            use_ra                  ='b0;
+            use_rb                  ='b0;
+            alu_op                  ='b0;
+            alu_B_sel               ='b0;    
+            flag_en                 ='b0;
+            flag_address            ='b0;
+            push                    ='b0;             
+            pop                     ='b0;              
+            mem_wr_en               ='b0;
+            mem_interface_sel       ='b1;
+            use_memory              ='b0;
+            write_reg_en            ='b0;
+            write_reg_address_sel   ='b0;
+            write_reg_data_sel      ='b0;
+            write_to_reg            ='b0;
+            destination_addr        ='b0;
+            flush_1_instruction     ='b0;
+            flush_2_instructions    ='b0;
+            flush_3_instructions    ='b0;
+            branch_flag             ='b0;
+            out_en                  ='b0;
+        end
+        else begin
             if (CS == NORMAL || CS == RUN_INTERRUPT)
                 begin
                     case(CI)

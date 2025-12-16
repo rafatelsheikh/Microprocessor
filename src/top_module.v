@@ -421,7 +421,7 @@ module top_module (clk, rst, interrupt, in, out);
     always @(*) begin
         case (r2_branch_flag)
             2'b00: selected_flag = ex_flag;
-            2'b01: selected_flag = ex_z;
+            2'b01: selected_flag = ~ex_z;
             2'b10: selected_flag = 1;
             2'b11: selected_flag = 1;
         endcase

@@ -7,7 +7,7 @@ module not_pipelined_tb ();
     top_module dut (clk, rst, interrupt_tb, in_tb, out_dut);
 
     initial begin
-        $readmemb("test5.dat", dut.mem_wrapper_inst.M0.mem);
+        $readmemb("test7.dat", dut.mem_wrapper_inst.M0.mem);
 
         clk = 0;
         forever begin
@@ -24,7 +24,7 @@ module not_pipelined_tb ();
 
         rst = 0;
 
-        repeat(50) begin
+        repeat(60) begin
             @(negedge clk);
         end
 
