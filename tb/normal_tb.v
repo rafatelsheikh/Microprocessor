@@ -1,4 +1,4 @@
-module not_pipelined_tb ();
+module normal_tb ();
     reg clk, rst, interrupt_tb;
     reg [7:0] in_tb;
     wire [7:0] out_dut;
