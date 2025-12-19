@@ -1,0 +1,48 @@
+vlib work
+vlog *v
+vsim -voptargs=+acc work.interrupt_tb
+add wave -position insertpoint  \
+sim:/interrupt_tb/clk \
+sim:/interrupt_tb/rst \
+sim:/interrupt_tb/interrupt_tb \
+sim:/interrupt_tb/in_tb \
+sim:/interrupt_tb/out_dut \
+sim:/interrupt_tb/dut/reg_file_inst/R0 \
+sim:/interrupt_tb/dut/reg_file_inst/R1 \
+sim:/interrupt_tb/dut/reg_file_inst/R2 \
+sim:/interrupt_tb/dut/reg_file_inst/R3 \
+sim:/interrupt_tb/dut/CU_inst/read_reg_a_sel \
+sim:/interrupt_tb/dut/CU_inst/read_reg_b_sel \
+sim:/interrupt_tb/dut/CU_inst/write_reg_en \
+sim:/interrupt_tb/dut/CU_inst/write_reg_address_sel \
+sim:/interrupt_tb/dut/CU_inst/write_reg_data_sel \
+sim:/interrupt_tb/dut/CU_inst/write_to_reg \
+sim:/interrupt_tb/dut/CU_inst/destination_addr \
+sim:/interrupt_tb/dut/mem_wrapper_inst/sel \
+sim:/interrupt_tb/dut/mem_wrapper_inst/M0/mem \
+sim:/interrupt_tb/dut/r4_alu_out \
+sim:/interrupt_tb/dut/r4_mem_out \
+sim:/interrupt_tb/dut/r4_reg_wr_data_sel \
+sim:/interrupt_tb/dut/reg_file_inst/wr_data \
+sim:/interrupt_tb/dut/mem_wrapper_inst/data \
+sim:/interrupt_tb/dut/mem_wrapper_inst/rd_data \
+sim:/interrupt_tb/dut/mem_wrapper_inst/address_wire \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/execute_use_ra \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/execute_use_rb \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/memory_writes \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/wb_writes \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/is_memory_instruction \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/execute_ra \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/execute_rb \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/mem_dest \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/wb_dest \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/fwd_A_memory_execute \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/fwd_B_memory_execute \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/fwd_A_wb_execute \
+sim:/interrupt_tb/dut/Hazard_Unit_inst/fwd_B_wb_execute \
+sim:/interrupt_tb/dut/selected_flag \
+sim:/interrupt_tb/dut/r2_branch_flag \
+sim:/interrupt_tb/dut/r2_pc_load_en \
+sim:/interrupt_tb/dut/r2_pc_load_data_sel
+
+run -all
