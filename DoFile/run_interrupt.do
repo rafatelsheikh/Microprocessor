@@ -43,6 +43,8 @@ sim:/interrupt_tb/dut/Hazard_Unit_inst/fwd_B_wb_execute \
 sim:/interrupt_tb/dut/selected_flag \
 sim:/interrupt_tb/dut/r2_branch_flag \
 sim:/interrupt_tb/dut/r2_pc_load_en \
-sim:/interrupt_tb/dut/r2_pc_load_data_sel
+sim:/interrupt_tb/dut/r2_pc_load_data_sel \
+sim:/interrupt_tb/dut/EX_stage_inst/flags_register_block/status_reg \
+sim:/interrupt_tb/dut/EX_stage_inst/flags_register_block/CCR
 
 run -all
