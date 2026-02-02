@@ -5,6 +5,8 @@ This project implements a **simple 8-bit pipelined processor** using **Verilog H
 
 The processor follows a **RISC-like Instruction Set Architecture (ISA)** and supports **five pipeline stages** with hazard detection and data forwarding.  
 The complete design flow and verification steps are documented in the accompanying **design report**, while functional requirements follow the **project specification document**.
+
+
 ![Architecture Diagram](docs/CPU_Architecture.png)
 ---
 
